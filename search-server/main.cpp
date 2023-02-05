@@ -6,10 +6,13 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <numeric>
 
 using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+
+constexpr int MIN = 1e-6;
 
 string ReadLine() {
     string s;
@@ -84,7 +87,7 @@ public:
 
         sort(matched_documents.begin(), matched_documents.end(),
             [](const Document& lhs, const Document& rhs) {
-                if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                if (abs(lhs.relevance - rhs.relevance) < MIN) {
                     return lhs.rating > rhs.rating;
                 }
                 else {
@@ -99,19 +102,7 @@ public:
 
     vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status) const {
         vector<Document> matched_documents;
-        if (status == DocumentStatus::ACTUAL) {
-            matched_documents = FindTopDocuments(raw_query, [](int document_id, DocumentStatus status, int rating) {return status == DocumentStatus::ACTUAL; });
-        }
-        if (status == DocumentStatus::IRRELEVANT) {
-            matched_documents = FindTopDocuments(raw_query, [](int document_id, DocumentStatus status, int rating) {return status == DocumentStatus::IRRELEVANT; });
-        }
-        if (status == DocumentStatus::BANNED) {
-            matched_documents = FindTopDocuments(raw_query, [](int document_id, DocumentStatus status, int rating) {return status == DocumentStatus::BANNED; });
-        }
-        if (status == DocumentStatus::REMOVED) {
-            matched_documents = FindTopDocuments(raw_query, [](int document_id, DocumentStatus status, int rating) {return status == DocumentStatus::REMOVED; });
-        }
-        return matched_documents;
+        return matched_documents = FindTopDocuments(raw_query, [status](int document_id, DocumentStatus s, int rating) {return s == status; });
     }
 
     vector<Document> FindTopDocuments(const string& raw_query) const {
@@ -175,10 +166,7 @@ private:
         if (ratings.empty()) {
             return 0;
         }
-        int rating_sum = 0;
-        for (const int rating : ratings) {
-            rating_sum += rating;
-        }
+        int rating_sum = accumulate(ratings.begin(), ratings.end(), 0);
         return rating_sum / static_cast<int>(ratings.size());
     }
 
