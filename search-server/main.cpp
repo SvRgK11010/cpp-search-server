@@ -387,10 +387,13 @@ void TestAddingDocuments() {
         ASSERT_EQUAL(server.GetDocumentCount(), 0);
         server.AddDocument(0, "cat in the city"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
         server.AddDocument(1, "dog in the small house", DocumentStatus::ACTUAL, { 1, 2, 3 });
+        server.AddDocument(2, "small cat in the park"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
         ASSERT_EQUAL(server.GetDocumentCount(), 2);
-        const auto found_docs = server.FindTopDocuments("cat"s);
-        const Document& doc = found_docs[0];
-        ASSERT_EQUAL(doc.id, 0);
+        const auto found_docs = server.FindTopDocuments("small cat"s);
+        const Document& doc1 = found_docs[0];
+        const Document& doc2 = found_docs[1];
+        ASSERT_EQUAL(doc1.id, 2);
+        ASSERT_EQUAL(doc2.id, 0);
     }
 }
 
@@ -437,10 +440,26 @@ void TestSortingByRelevance() {
 //Вычисление рейтинга
 void TestСalculationAverageRating() {
     SearchServer server;
-    vector <int> ratings = { 1, 2, 3 };
+    vector <int> ratings1 = { 1, 2, 3 };
+    vector <int> ratings2 = { -1, -2, -3 };
+    vector <int> ratings3 = { -1, 2, -3 };
     {
-        server.AddDocument(0, "cat in the city"s, DocumentStatus::ACTUAL, ratings);
+        server.AddDocument(0, "cat in the city"s, DocumentStatus::ACTUAL, ratings1);
         const int correct_answer = (1 + 2 + 3) / 3;
+        const auto found_docs = server.FindTopDocuments("cat"s);
+        const Document& doc0 = found_docs[0];
+        ASSERT_EQUAL(doc0.rating, correct_answer);
+    }
+    {
+        server.AddDocument(0, "cat in the city"s, DocumentStatus::ACTUAL, ratings2);
+        const int correct_answer = (-1 - 2 - 3) / 3;
+        const auto found_docs = server.FindTopDocuments("cat"s);
+        const Document& doc0 = found_docs[0];
+        ASSERT_EQUAL(doc0.rating, correct_answer);
+    }
+    {
+        server.AddDocument(0, "cat in the city"s, DocumentStatus::ACTUAL, ratings3);
+        const int correct_answer = (-1 + 2 - 3) / 3;
         const auto found_docs = server.FindTopDocuments("cat"s);
         const Document& doc0 = found_docs[0];
         ASSERT_EQUAL(doc0.rating, correct_answer);
@@ -475,15 +494,29 @@ void TestSearchingByStatus() {
     int doc_id2 = 2;
     int doc_id3 = 3;
     int doc_id4 = 4;
+    server.AddDocument(doc_id0, "cat in the city"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
+    server.AddDocument(doc_id1, "cat in the small house", DocumentStatus::ACTUAL, { 1, 2, 3 });
+    server.AddDocument(doc_id2, "parrot in the city"s, DocumentStatus::BANNED, { 1, 2, 3 });
+    server.AddDocument(doc_id3, "cat in the Green street", DocumentStatus::REMOVED, { 1, 2, 3 });
+    server.AddDocument(doc_id4, "cat in the park"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
     {
-        server.AddDocument(doc_id0, "cat in the city"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
-        server.AddDocument(doc_id1, "cat in the small house", DocumentStatus::ACTUAL, { 1, 2, 3 });
-        server.AddDocument(doc_id2, "parrot in the city"s, DocumentStatus::BANNED, { 1, 2, 3 });
-        server.AddDocument(doc_id3, "cat in the Green street", DocumentStatus::REMOVED, { 1, 2, 3 });
-        server.AddDocument(doc_id4, "cat in the park"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
         const auto found_docs = server.FindTopDocuments("cat"s, DocumentStatus::REMOVED);
         const Document& doc0 = found_docs[0];
         ASSERT_EQUAL(doc0.id, doc_id3);
+    }
+    {
+        const auto found_docs = server.FindTopDocuments("city"s, DocumentStatus::BANNED);
+        const Document& doc0 = found_docs[0];
+        ASSERT_EQUAL(doc0.id, doc_id2);
+    }
+    {
+        const auto found_docs = server.FindTopDocuments("city"s, DocumentStatus::ACTUAL);
+        const Document& doc0 = found_docs[0];
+        ASSERT_EQUAL(doc0.id, doc_id0);
+    }
+    {
+        const auto found_docs = server.FindTopDocuments("cat"s, DocumentStatus::IRRELEVANT);
+        ASSERT(found_docs.empty());
     }
 }
 
@@ -497,8 +530,9 @@ void TestCorrectСalculationRelevance() {
         server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
         server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
         const auto found_docs = server.FindTopDocuments("пушистый ухоженный кот"s);
-        double a = found_docs[0].relevance - MIN;
-        ASSERT_HINT((a < 0.87), "Relevance calculated incorrectly"s);
+        double correct_r = 0.866434;
+        double a = found_docs[0].relevance - correct_r;
+        ASSERT_HINT((abs(a) < MIN), "Relevance calculated incorrectly"s);
     }
     {
         server.SetStopWords("и в нa");
@@ -506,9 +540,9 @@ void TestCorrectСalculationRelevance() {
         server.AddDocument(1, "собака собака собака и щенок"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
         server.AddDocument(2, "заяц зяац и зайчиха"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
         const auto found_docs = server.FindTopDocuments("кот"s);
-        double relevance1 = 0.82396;
-        double a = found_docs[0].relevance - MIN;
-        ASSERT_HINT((a < relevance1), "Relevance calculated incorrectly"s);
+        double correct_r = 0.82396;
+        double a = found_docs[0].relevance - correct_r;
+        ASSERT_HINT((abs(a) < MIN), "Relevance calculated incorrectly"s);
     }
 
 }
