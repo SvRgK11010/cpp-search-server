@@ -91,12 +91,12 @@ const map<string, double>& SearchServer::GetWordFrequencies(int document_id) con
 void SearchServer::RemoveDocument (int document_id) {
     documents_.erase(document_id); 
     documents_id_.erase(document_id);
-    if (word_frequency_.count(document_id)) { word_frequency_.erase(document_id); }
-    for (const auto& [word, id] : word_to_document_freqs_) {
-        if (word_to_document_freqs_.at(word).count(document_id)) {
+    map<string, double> words_to_delete = GetWordFrequencies(document_id);
+    for (const auto& [word, id] : words_to_delete) {
             word_to_document_freqs_.at(word).erase(document_id);
-        }
+        if (word_to_document_freqs_.at(word).empty()) { word_to_document_freqs_.erase(word); }
     }
+    if (word_frequency_.count(document_id)) { word_frequency_.erase(document_id); }
 }
 
 
