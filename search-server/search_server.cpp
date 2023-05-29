@@ -6,6 +6,13 @@ SearchServer::SearchServer(const string& stop_words_text)
 {
 }
 
+SearchServer::SearchServer(std::string_view stop_words_text) {
+    vector<string_view> stops = SplitIntoWords(stop_words_text);
+    for (string_view stop_w : stops) {
+        stop_words_.insert(string{ stop_w });
+    }
+}
+
 void SearchServer::AddDocument(int document_id, string_view document, DocumentStatus status, const vector<int>& ratings) {
     if (!IsValidWord(document)) {
         throw invalid_argument("Документ содержит недопустимые символы."s);
@@ -32,31 +39,14 @@ void SearchServer::AddDocument(int document_id, string_view document, DocumentSt
 }
 
 vector<Document> SearchServer::FindTopDocuments(string_view raw_query, DocumentStatus status) const {
-    return FindTopDocuments(raw_query, [status](int document_id, DocumentStatus document_status, int rating) {
+    return FindTopDocuments(execution::seq, raw_query, [status](int document_id, DocumentStatus document_status, int rating) {
         return document_status == status; });
 }
 
 vector<Document> SearchServer::FindTopDocuments(string_view raw_query) const {
-    return FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
+    return FindTopDocuments(execution::seq, raw_query, DocumentStatus::ACTUAL);
 }
 
-vector<Document> SearchServer::FindTopDocuments(execution::sequenced_policy policy, string_view raw_query, DocumentStatus status) const {
-    return FindTopDocuments(policy, raw_query, [status](int document_id, DocumentStatus document_status, int rating) {
-        return document_status == status; });
-}
-
-vector<Document> SearchServer::FindTopDocuments(execution::sequenced_policy policy, string_view raw_query) const {
-    return FindTopDocuments(policy, raw_query, DocumentStatus::ACTUAL);
-}
-
-vector<Document> SearchServer::FindTopDocuments(execution::parallel_policy policy, string_view raw_query, DocumentStatus status) const {
-    return FindTopDocuments(policy, raw_query, [status](int document_id, DocumentStatus document_status, int rating) {
-        return document_status == status; });
-}
-
-vector<Document> SearchServer::FindTopDocuments(execution::parallel_policy policy, string_view raw_query) const {
-    return FindTopDocuments(policy, raw_query, DocumentStatus::ACTUAL);
-}
 
 int SearchServer::GetDocumentCount() const {
     int x = static_cast<int>(documents_.size());
